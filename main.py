@@ -3,6 +3,7 @@
 #       UI - KLASTROVANIE (3C)
 
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 
 ################################################################################################
@@ -11,8 +12,9 @@ import matplotlib.pyplot as plt
 MIN_VALUE = -5000
 MAX_VALUE = 5000
 
-NUM_OF_START_POINTS = 20        # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
-NUM_OF_ANOTHER_POINTS = 20000      # NÁSLEDNE 20000 ĎALŠÍCH BODOV
+NUM_OF_START_POINTS = 20            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
+# NUM_OF_ANOTHER_POINTS = 20000       # NÁSLEDNE 20000 ĎALŠÍCH BODOV
+NUM_OF_ANOTHER_POINTS = 2000        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
 
 # pre generate_first_points() a export_graph()
 #    # je ALL_POINTS list of dictionary => "color" = farba  | "points" = body (x,y)
@@ -111,8 +113,29 @@ def generate_points():
 ####
 
 
+####################################
+# ##  AGLOMERATIVNE, CENTROID   ## #
+####################################
+# vzdialenosť medzi dvoma bodmi v euklidovskej rovine
+def euclidean_distance(point1, point2):
+    return np.sqrt(np.sum((point1 - point2) ** 2))
+
+
+# ALGORITMUS PRE AGLOMERATÍVNE ZHLUKOVANIE, kde stred je centroid
+def aglomerative_w_centroid():
+    # CENTROID JE FIKTÍVNY (novo/umelo vytvorený bod), ktorý je v strede vybraných bodov (ťažisko)
+    number = euclidean_distance(ALL_POINTS[0][0], ALL_POINTS[0][1])
+    print()
+    pass
+
+####################################
+# ##  END                       ## #
+# ##  AGLOMERATIVNE, CENTROID   ## #
+####################################
+
+
 # VYGENERUJE GRAF
-def print_points():
+def print_points(filename=None):
     # Vytvorím graf s prázdnymi osami v rozsahu od -5000 do 5000
     # plt.axis((-5000, 5000, -5000, 5000))
     plt.axis((MIN_VALUE, MAX_VALUE, MIN_VALUE, MAX_VALUE))
@@ -120,7 +143,7 @@ def print_points():
     # Nastavím popisky osí a titulok
     plt.xlabel('X-ová os')
     plt.ylabel('Y-ová os')
-    plt.title('Graf bodov od -5000 do 5000')
+    plt.title('KLASTROVANIE  [zadanie 3C]')
 
     # Nastavím hodnoty osí po tisícoch
     plt.xticks(range(-5000, 5001, 1000))
@@ -136,13 +159,15 @@ def print_points():
         hodnoty_y.append(y)
 
     # ZAPÍŠEM BODY DO GRAFU (rovnakej farby)
-    plt.scatter(hodnoty_x, hodnoty_y, color="blue", s=5)
+    plt.scatter(hodnoty_x, hodnoty_y, color="orange", s=5)
 
     # Pridáme legendu
     # plt.legend()
 
     # Uloženie grafu do súboru vo formáte PNG
-    # plt.savefig('export_graphs/graf.png')
+    if filename is not None:
+        filename = str(filename)
+        plt.savefig(f"export_graphs/{filename}.png")
 
     # Zobrazení grafu
     plt.show()
@@ -227,8 +252,11 @@ def export_graph():
 if __name__ == '__main__':
     print("\nUI ZADANIE 3, KLASTROVANIE\n")
 
+    # TOTO NEPOUŽÍVAM
     # generate_first_points()
     # export_graph()
 
     generate_points()
-    print_points()
+    # print_points("1_start_GRAPH")
+
+    aglomerative_w_centroid()
