@@ -6,18 +6,51 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+# TRIEDA PRE ZHLUK BODU/BODOV (cluster)
+class Cluster:
+
+    # AK VYTVÁRAM CLUSTER ==> LIST = JEDEN BOD a TEN JE ZÁROVEŇ CENTROID
+    def __init__(self, points):
+        self.points = []
+        self.points.extend(points)      # LIST BODOV / alebo aj jedného [(x,y), ...]
+
+        # self.centroid = centroid        # JEDEN BOD (x,y)
+        self.centroid = None
+        self.calculate_centroid()       # sam si vypocita centroid
+    ##################################################################################
+
+    # NAJDENIE CENTROIDU V ZHLUKU BODOV
+    def calculate_centroid(self):
+        # Centroid (ťažisko) sa vypočíta ako priemerná hodnota súradníc všetkých bodov v zhluku
+        # Používame axis=0, aby sme vypočítali priemernú hodnotu pre každý stĺpec (X a Y) zvlášť.
+        new_centroid = np.mean(self.points, axis=0)
+        new_centroid = tuple(new_centroid)  # NumPy array si konvertujem na tuple (x,y)
+
+        self.centroid = new_centroid        # nastavím nový centroid
+    #############################################################################################
+
+    # PRIDÁVANIE BODOV DO CLUSTERA (LIST BODOV (x,y) ) aj jeden bod v LISTE bude ok
+    def add_points(self, points):
+        # PRIDÁ BODY K EXISTUJÚCIM
+        self.points.extend(points)
+        # VYPOČÍTA NOVÝ CENTROID
+        self.calculate_centroid()
+        # PREPOČÍTAM VZDIALENOSTI PRE TENTO ZHLUK ku všetkým ostatným bodom
+        # for cyklus listu clusterv, bude niečo robiť, no na sebe samom to vynecha ==> ... if cluster is not self ...
+        pass
+    ####################################################################################################################
+
+
 ################################################################################################
 
 # X a Y súradnice budú od -5000 do +5000
 MIN_VALUE = -5000
 MAX_VALUE = 5000
 
-NUM_OF_START_POINTS = 10            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
+NUM_OF_START_POINTS = 20            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
 # NUM_OF_ANOTHER_POINTS = 20000       # NÁSLEDNE 20000 ĎALŠÍCH BODOV
-NUM_OF_ANOTHER_POINTS = 500        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
-
-# pre generate_first_points() a export_graph()
-#    # je ALL_POINTS list of dictionary => "color" = farba  | "points" = body (x,y)
+NUM_OF_ANOTHER_POINTS = 100        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
 
 # pre generate_points() a print_points()
 #    # je ALL_POINTS jednoducho list bodov (x, y)
@@ -120,6 +153,7 @@ def generate_points():
 ####################################
 # ##  AGLOMERATIVNE, CENTROID   ## #
 ####################################
+
 # vzdialenosť medzi dvoma bodmi v euklidovskej rovine
 def euclidean_distance(point1, point2):
     # Konvertujte body na NumPy array
@@ -130,42 +164,58 @@ def euclidean_distance(point1, point2):
     return np.sqrt(np.sum((point_1 - point_2) ** 2))
 
 
-# vypočíta 2D maticu vzdialeností vš. bodov     # napr. mám 70 bodov, tak vypočíta 70*70=4900 vzdialeností
-def euclidean_distance_matrix(points):
+# vypočíta vzdialenosť dvoch centroidov v ZHLUKOCH (clustroch)
+def centroid_distance(cluster1, cluster2):
+    centroid1 = cluster1.centroid
+    centroid2 = cluster2.centroid
+    return euclidean_distance(centroid1, centroid2)
 
-    # vytvorím 2D maticu, kde element (i, j) obsahuje vzdialenosť medzi bodmi i a j
-    distances = np.zeros((len(points), len(points)))    # na zaciatku vsade 0
 
-    # pre celú maticu distances vypočíta všetky vzdialenosti bodov a zapíše do matice
-    for i in range(len(points)):
-        for j in range(len(points)):
-            distances[i, j] = euclidean_distance(points[i], points[j])
-            # print(distances[i, j])
+# vypočíta 2D maticu vzdialeností centroidov v ZHLUKOCH
+def make_centroids_distance_matrix(clusters):
+
+    # vytvorím 2D maticu, kde element (i, j) obsahuje vzdialenosť medzi bodmi (centroidmi) clustrov i a j
+    distances = np.zeros((len(clusters), len(clusters)))    # na zaciatku vsade inicializovane na 0
+
+    # pre celú maticu distances vypočíta všetky vzdialenosti centroidov (z daneho zhluku) a zapíše do matice
+    for i in range(len(clusters)):
+        for j in range(len(clusters)):
+
+            distances[i, j] = centroid_distance(clusters[i], clusters[j])   # POSIELAM CELÉ ZHLUKY, funkcia si spracuje sama a vráti vzdialenosť centroidov
+            # print(f"VZDIALENOST CENTROIDOV: {distances[i, j]}")
+
+    # Ignorujte diagonálu matice    (pretože na diagonále su nuly, tie nepotrebujem, bod so semou samým ma nezaujíma)
+    np.fill_diagonal(distances, np.inf)
 
     return distances
-
-
-def calculate_centroid(cluster):
-    return np.mean(cluster, axis=0)
-
-
-def centroid_distance(cluster1, cluster2):
-    centroid1 = calculate_centroid(cluster1)
-    centroid2 = calculate_centroid(cluster2)
-    return euclidean_distance(centroid1, centroid2)
 
 
 # ALGORITMUS PRE AGLOMERATÍVNE ZHLUKOVANIE, kde stred je centroid
 def aglomerative_w_centroid(dataset, k):
     ALL_POINTS = copy.deepcopy(dataset)
 
-    # dataset ==>  list dát
+    # dataset ==>  list dát (x,y)
     # k       ==>  na koľko zhlukov rozdelím dataset
-
     # CENTROID JE FIKTÍVNY (novo/umelo vytvorený bod), ktorý je v strede vybraných bodov (ťažisko)
 
     # NA ZAČIATKU SA KAŽDÝ BOD POČÍTA AKO JEDEN ZHLUK (cluster)
-    clusters = [[point] for point in ALL_POINTS]      # inicializácia zhlukov: každý bod == samostatný zhluk (list s jedným bodom)
+    clusters = []
+    for point in ALL_POINTS:
+        tmp_cluster = Cluster(points=[point])   # inicializácia zhlukov: každý bod == samostatný zhluk (list s jedným bodom) | jeden bod v liste je sam sebe aj centroid
+        clusters.append(tmp_cluster)                            # pridá nový cluster do listu
+
+    # CISTO NA TESTOVACIE ÚČELY, POTOM ODSTRÁNIŤ
+    clusters.append(Cluster(points=[(1, 2), (1, 3)]))
+    clusters.append(Cluster(points=[(2, 2), (2, 3)]))
+    clusters.append(Cluster(points=[(556, 2), (111, 3)]))
+    clusters.append(Cluster(points=[(1012, 2), (-20, 3)]))
+    # CISTO NA TESTOVACIE ÚČELY, POTOM ODSTRÁNIŤ
+    # ###################################################################################################################################################################################
+
+    # VYPOČÍTA VZDIALENOSŤ CENTROIDOV PRE clusters[0] a clusters[1]
+    # dst = centroid_distance(clusters[0], clusters[1])
+
+    # ###################################################################################################################################################################################
 
     # postupné zlučovanie zhlukov (clusterov), kým nie je dosiahnutý požadovaný počet zhlukov (k)
     num_of_iteration = 0
@@ -173,48 +223,61 @@ def aglomerative_w_centroid(dataset, k):
         print(f"NUMBER OF ITERATION: {num_of_iteration}")
         num_of_iteration += 1
 
-        # Výpočet centroidov
-        centroids = [calculate_centroid(cluster) for cluster in clusters]
+        # TERAZ VYPOČÍTAM VŠETKY VZDIALENOSTI PRE JEDNOTLIVÉ CENTROIDY V KLASTROCH
+        clusters_centroids_distances = make_centroids_distance_matrix(clusters)
 
-        # Výpočet vzdialeností medzi centroidmi
-        distances = euclidean_distance_matrix(centroids)
+        # VYBERIEM ZHLUKY S NAJMENŠIOU VZDIALENOSŤOU CENTROIDOU, tie neskor spolu zlúčim
+        min_distance_index = np.unravel_index(np.argmin(clusters_centroids_distances), clusters_centroids_distances.shape)
 
-        # Ignorujte diagonálu matice
-        np.fill_diagonal(distances, np.inf)
+        # Získajte indexy zhlukov s najmenšou vzdialenosťou
+        index_cluster1 = min_distance_index[0]
+        index_cluster2 = min_distance_index[1]
 
-        min_distance_index = np.unravel_index(np.argmin(distances), distances.shape)
+        # Získajte príslušné zhluky zo zoznamu clusters ktoré treba zlúčiť
+        cluster1 = clusters[index_cluster1]
+        cluster2 = clusters[index_cluster2]
 
-        # Zlúči dva najbližšie zhluky
-        cluster1 = clusters[min_distance_index[0]]
-        cluster2 = clusters[min_distance_index[1]]
-        new_cluster = cluster1 + cluster2
-        clusters.pop(min_distance_index[0])
-        clusters.pop(min_distance_index[1] - 1)
+        # VIEM ŽE cluster1 a cluster2 majú najmenšiu vzdialenosť centroidov
 
-        clusters.append(new_cluster)
+        # ZLÚČENIE DVOCH ZHLUKOV
+        # do prvého zhluku pridám body z druhého, ten si sám prepočíta centroid
+        cluster1.add_points(cluster2.points)
 
-        # distances = euclidean_distance_matrix(clusters)
+        # vymaze nepotrebný cluster2
+        clusters.remove(cluster2)
 
-        # Ignorujte diagonálu matice (0 nahradím nekonečno), takže minimum mi bude správne hľadať
+
+        ###
+        ###
+        ###
+
+        # # Výpočet centroidov
+        # centroids = [calculate_centroid(cluster) for cluster in clusters]
+        #
+        # # Výpočet vzdialeností medzi centroidmi
+        # distances = euclidean_distance_matrix(centroids)
+        #
+        # # Ignorujte diagonálu matice
         # np.fill_diagonal(distances, np.inf)
+        #
+        # min_distance_index = np.unravel_index(np.argmin(distances), distances.shape)
+        #
+        # # Zlúči dva najbližšie zhluky
+        # cluster1 = clusters[min_distance_index[0]]
+        # cluster2 = clusters[min_distance_index[1]]
+        # new_cluster = cluster1 + cluster2
+        # clusters.pop(min_distance_index[0])
+        # clusters.pop(min_distance_index[1] - 1)
+        #
+        # clusters.append(new_cluster)
 
-        # Nájdi indexy najbližších zhlukov
-        min_distance_index = np.unravel_index(np.argmin(distances), distances.shape)
-
-        # SEM VYPOČÍTANIE VŠETKÝCH VZDIALENOSTÍ PRE VŠETKY BODY, A VYBRATIE TÝCH DVOCH BODOV S NAJMENŠIOU VZDIALENOSŤOU
-
-        # VYPOČÍTA VŠ. VZDIALENOSTI PRE BODY
-        # distance_matrix = euclidean_distance_matrix(ALL_POINTS)
-
-        # NÁJDE NAJMENŠIU VZDIALENOSŤ 2 BODOV (okrem diagonály v matici (to je 0 a je to bod so samým sebou))
-
-        pass
         # ######### koniec iterácie zhlukovania
 
     return clusters
 
     print("DEBUG")
     pass
+
 
 ####################################
 # ##  END                       ## #
@@ -283,19 +346,19 @@ def print_clusters(clusters, filename=None):
     # plt.scatter(0, 0, color='red', s=5)
 
     i = 0
-    farba = ["red", "blue", "green", "pink"]
+    farba = ["red", "blue", "green", "purple", "black"]
     for cluster in ALL_CLUSTERS:
 
         hodnoty_x = []
         hodnoty_y = []
-        for x, y in cluster:
-            hodnoty_x.append(x)
-            hodnoty_y.append(y)
+        for point in cluster.points:
+            hodnoty_x.append(point[0])
+            hodnoty_y.append(point[1])
 
         # ZAPÍŠEM BODY DO GRAFU (rovnakej farby)
         color = farba[i]
         # plt.scatter(hodnoty_x, hodnoty_y, color="orange", s=5)
-        plt.scatter(hodnoty_x, hodnoty_y, color=str(color), s=5)
+        plt.scatter(hodnoty_x, hodnoty_y, color=str(color), s=10)
         i += 1
 
     # Pridáme legendu
