@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 
 id_counter = 0
 
+calculate_medoid = bool()     # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+
 
 # TRIEDA PRE ZHLUK BODU/BODOV (cluster)
 class Cluster:
@@ -17,13 +19,19 @@ class Cluster:
         self.points = []
         self.points.extend(points)      # LIST BODOV / alebo aj jedného [(x,y), ...]
 
-        # self.centroid = centroid        # JEDEN BOD (x,y)
-        self.centroid = None
-        self.calculate_centroid()       # sam si vypocita centroid
-
         global id_counter
         self.id = id_counter            # jedinečné ID pre cluster
         id_counter += 1
+
+        global calculate_medoid     # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+        if calculate_medoid:
+            self.medoid = None
+            self.find_medoid()
+        else:
+            # self.centroid = centroid        # JEDEN BOD (x,y)
+            self.centroid = None
+            self.calculate_centroid()  # sam si vypocita centroid
+
     ##################################################################################
 
     # NAJDENIE CENTROIDU V ZHLUKU BODOV
@@ -36,14 +44,38 @@ class Cluster:
         self.centroid = new_centroid        # nastavím nový centroid
     #############################################################################################
 
+    # NAJDENIE MEDOIDU V ZHLUKU BODOV
+    def find_medoid(self):
+        min_total_distance = float('inf')
+        medoid_point = None
+
+        for point1 in self.points:
+            total_distance = 0
+            for point2 in self.points:
+                total_distance += euclidean_distance(point1, point2)
+
+            if total_distance < min_total_distance:
+                min_total_distance = total_distance
+                medoid_point = point1
+
+        self.medoid = medoid_point
+    #############################################################################################
+
     # PRIDÁVANIE BODOV DO CLUSTERA (LIST BODOV (x,y) ) aj jeden bod v LISTE bude ok
     def add_points(self, points):
         # PRIDÁ BODY K EXISTUJÚCIM
         self.points.extend(points)
-        # VYPOČÍTA NOVÝ CENTROID
-        self.calculate_centroid()
-        # PREPOČÍTAM VZDIALENOSTI PRE TENTO ZHLUK ku všetkým ostatným bodom
-        # for cyklus listu clusterv, bude niečo robiť, no na sebe samom to vynecha ==> ... if cluster is not self ...
+
+        global calculate_medoid  # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+
+        if calculate_medoid:
+            # VYPOČÍTA MEDOID
+            self.find_medoid()
+        else:
+            # VYPOČÍTA NOVÝ CENTROID
+            self.calculate_centroid()
+            # PREPOČÍTAM VZDIALENOSTI PRE TENTO ZHLUK ku všetkým ostatným bodom
+            # for cyklus listu clusterv, bude niečo robiť, no na sebe samom to vynecha ==> ... if cluster is not self ...
         pass
     ####################################################################################################################
 
@@ -54,7 +86,7 @@ class Cluster:
 MIN_VALUE = -5000
 MAX_VALUE = 5000
 
-NUM_OF_START_POINTS = 5            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
+NUM_OF_START_POINTS = 20            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
 # NUM_OF_ANOTHER_POINTS = 20000       # NÁSLEDNE 20000 ĎALŠÍCH BODOV
 NUM_OF_ANOTHER_POINTS = 100        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
 
@@ -196,10 +228,38 @@ def make_centroids_distance_matrix(clusters):
     return distances
 
 
+# vypočíta vzdialenosť dvoch medoidov v ZHLUKOCH (clustroch)
+def medoid_distance(cluster1, cluster2):
+    medoid1 = cluster1.medoid
+    medoid2 = cluster2.medoid
+    # centroid1 = cluster1.centroid
+    # centroid2 = cluster2.centroid
+    return euclidean_distance(medoid1, medoid2)
+
+
+# vypočíta 2D maticu vzdialeností medoidov v ZHLUKOCH
+def make_medoids_distance_matrix(clusters):
+
+    # vytvorím 2D maticu, kde element (i, j) obsahuje vzdialenosť medzi bodmi (centroidmi) clustrov i a j
+    distances = np.zeros((len(clusters), len(clusters)))    # na zaciatku vsade inicializovane na 0
+
+    # pre celú maticu distances vypočíta všetky vzdialenosti medoidov (z daneho zhluku) a zapíše do matice
+    for i in range(len(clusters)):
+        for j in range(len(clusters)):
+
+            distances[i, j] = medoid_distance(clusters[i], clusters[j])   # POSIELAM CELÉ ZHLUKY, funkcia si spracuje sama a vráti vzdialenosť medoidov
+            # print(f"VZDIALENOST CENTROIDOV: {distances[i, j]}")
+
+    # Ignorujte diagonálu matice    (pretože na diagonále su nuly, tie nepotrebujem, bod so semou samým ma nezaujíma)
+    np.fill_diagonal(distances, np.inf)
+
+    return distances
+
 # NEW
 # každý cluster bude mať svoje ID
 # a vzdialenosti budem udržiavať v dictionary (ID_1, ID_2 a vzdialenosť medzi nimi)
 # potom už budem iba meniť tie, ktoré potrebujem (a ktoré sa ovplyvnia)
+
 
 def calculate_distances_NEW(clusters):
     distances_dict = {}     # key (id_clustera1, id_clustera1)   # value (ich vzdialenosť)
@@ -584,6 +644,7 @@ def control_each_cluster(clusters):
 
 
 # ALGORITMUS PRE AGLOMERATÍVNE ZHLUKOVANIE, kde stred je centroid
+# ak nastavím medoid=True, tak zhlukuje podľa medoidu
 def aglomerative_w_centroid(dataset, k):
     ALL_POINTS = copy.deepcopy(dataset)
 
@@ -622,11 +683,21 @@ def aglomerative_w_centroid(dataset, k):
         print(f"NUMBER OF ITERATION: {num_of_iteration}")
         num_of_iteration += 1
 
-        # TERAZ VYPOČÍTAM VŠETKY VZDIALENOSTI PRE JEDNOTLIVÉ CENTROIDY V KLASTROCH
-        clusters_centroids_distances = make_centroids_distance_matrix(clusters)
+        global calculate_medoid
 
+        # S CENTROIDOM
+        if not calculate_medoid:
+            # TERAZ VYPOČÍTAM VŠETKY VZDIALENOSTI PRE JEDNOTLIVÉ CENTROIDY V KLASTROCH
+            clusters_distances = make_centroids_distance_matrix(clusters)
+
+        # S MEDOIDOM
+        else:
+            # TERAZ VYPOČÍTAM VŠETKY VZDIALENOSTI PRE JEDNOTLIVÉ MEDOIDY V KLASTROCH
+            clusters_distances = make_medoids_distance_matrix(clusters)
+
+        #
         # VYBERIEM ZHLUKY S NAJMENŠIOU VZDIALENOSŤOU CENTROIDOU, tie neskor spolu zlúčim
-        min_distance_index = np.unravel_index(np.argmin(clusters_centroids_distances), clusters_centroids_distances.shape)
+        min_distance_index = np.unravel_index(np.argmin(clusters_distances), clusters_distances.shape)
 
         # Získajte indexy zhlukov s najmenšou vzdialenosťou
         index_cluster1 = min_distance_index[0]
@@ -760,8 +831,13 @@ def print_clusters(clusters, filename=None):
         # plt.scatter(hodnoty_x, hodnoty_y, color="orange", s=5)
         plt.scatter(hodnoty_x, hodnoty_y, color=str(color), s=10, zorder=0)
 
-        # vykreslenie centroidu
-        plt.scatter(cluster.centroid[0], cluster.centroid[1], marker="o", edgecolors="black", facecolors='none', s=30, linewidths=0.8, zorder=1)
+        global calculate_medoid  # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+        if calculate_medoid:
+            # vykreslenie medoidu
+            plt.scatter(cluster.medoid[0], cluster.medoid[1], marker="o", edgecolors="black", facecolors='none', s=10, linewidths=0.8, zorder=1)
+        else:
+            # vykreslenie centroidu
+            plt.scatter(cluster.centroid[0], cluster.centroid[1], marker="o", edgecolors="black", facecolors='none', s=30, linewidths=0.8, zorder=1)
 
         i += 1
 
@@ -792,9 +868,14 @@ if __name__ == '__main__':
     # print_points(dataset=DATASET, filename="1_start_GRAPH")
     # print_points(dataset=DATASET)
 
+    calculate_medoid = True  # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+
     # STARÉ, FUNKČNÉ
+    # S CENTROIDOM
     clust = aglomerative_w_centroid(dataset=DATASET, k=5)
     print_clusters(clust)
+    # S MEDOIDOM
+    # aglomerative_w_centroid(dataset=DATASET, k=5)
 
     # NOVÉ, TESTUJEM
     # clust = aglomerative_w_centroid_NEW(dataset=DATASET, k=2)
