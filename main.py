@@ -49,11 +49,15 @@ class Cluster:
         min_total_distance = float('inf')
         medoid_point = None
 
+        # prechádzam všetky body v zhluku.
         for point1 in self.points:
             total_distance = 0
+
+            # pre každý bod v zhluku vypočítam jeho vzdialenosť od ostatných bodov v zhluku.
             for point2 in self.points:
                 total_distance += euclidean_distance(point1, point2)
 
+            # ak nájdem bod s nižšou celkovou vzdialenosťou, aktualizujem medoid
             if total_distance < min_total_distance:
                 min_total_distance = total_distance
                 medoid_point = point1
@@ -88,7 +92,7 @@ MAX_VALUE = 5000
 
 NUM_OF_START_POINTS = 20            # NAJPRV VYGENERUJE 20 POČIATOČNÝ BODOV
 # NUM_OF_ANOTHER_POINTS = 20000       # NÁSLEDNE 20000 ĎALŠÍCH BODOV
-NUM_OF_ANOTHER_POINTS = 100        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
+NUM_OF_ANOTHER_POINTS = 500        # NÁSLEDNE 20000 ĎALŠÍCH BODOV
 
 # pre generate_points() a print_points()
 #    # je ALL_POINTS jednoducho list bodov (x, y)
@@ -868,15 +872,16 @@ if __name__ == '__main__':
     # print_points(dataset=DATASET, filename="1_start_GRAPH")
     # print_points(dataset=DATASET)
 
-    calculate_medoid = True  # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
-
     # STARÉ, FUNKČNÉ
     # S CENTROIDOM
+    calculate_medoid = False      # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+    # S MEDOIDOM
+    # calculate_medoid = True         # ak TRUE - tak počíta s medoidom, ak FALSE - tak počíta s centroidom
+
     clust = aglomerative_w_centroid(dataset=DATASET, k=5)
     print_clusters(clust)
-    # S MEDOIDOM
-    # aglomerative_w_centroid(dataset=DATASET, k=5)
 
     # NOVÉ, TESTUJEM
+    # calculate_medoid = False
     # clust = aglomerative_w_centroid_NEW(dataset=DATASET, k=2)
     # print_clusters(clust)
