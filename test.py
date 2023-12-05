@@ -20,7 +20,7 @@ plt.title("Pôvodné dáta")
 plt.show()
 
 # Aglomeratívne zhlukovanie
-model = AgglomerativeClustering(n_clusters=4, linkage='single', metric='euclidean')
+model = AgglomerativeClustering(n_clusters=3, linkage='single', metric='euclidean')
 y_pred = model.fit_predict(DATASET)
 
 # Získanie centroidov pre každý zhluk
